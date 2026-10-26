@@ -115,6 +115,13 @@ async function loadCabin() {
     label.textContent = rowNo;
     div.appendChild(label);
     for (const letter of ['A', 'B', 'C', 'D']) {
+      // dashed aisle between B and C, like a real cabin
+      if (letter === 'C') {
+        const aisle = document.createElement('span');
+        aisle.className = 'aisle';
+        aisle.setAttribute('aria-hidden', 'true');
+        div.appendChild(aisle);
+      }
       const s = rows[rowNo].find((x) => x.seat_no === rowNo + letter);
       if (!s) continue;
       const b = document.createElement('button');
@@ -249,7 +256,12 @@ async function showTicket(bookingId) {
   const p = site.passengers.find((x) => x.passenger_id === site.paxId);
   $s('tkt-pax').textContent = p ? p.name : ('passenger ' + site.paxId);
   const total = Number(row.amount) + Number(row.baggage_fee);
-  $s('tkt-total').textContent = total.toFixed(2) + ' (' + row.payment_status + ')';
+  const totalEl = $s('tkt-total');
+  totalEl.textContent = total.toFixed(2) + '  ';
+  const badge = document.createElement('span');
+  badge.className = 'badge b-' + (row.payment_status === 'PAID' ? 'ok' : 'err');
+  badge.textContent = row.payment_status;
+  totalEl.appendChild(badge);
   $s('site-ticket').hidden = false;
 }
 
@@ -270,13 +282,22 @@ async function loadTrips() {
     }
     for (const r of body.rows) {
       const li = document.createElement('li');
-      const text = document.createElement('span');
-      text.className = 'trip-line';
-      text.textContent = `#${r.booking_id}  ${r.flight_no} ${r.seat_no}  ${r.status}  ${Number(r.amount) + Number(r.baggage_fee)}`;
-      li.appendChild(text);
+      const line = document.createElement('span');
+      line.className = 'trip-line';
+      line.textContent = `#${r.booking_id}  ${r.flight_no} ${r.seat_no}`;
+      const badge = document.createElement('span');
+      badge.className = 'badge b-' + (r.status === 'CONFIRMED' ? 'ok' : 'err');
+      badge.textContent = r.status;
+      const amt = document.createElement('span');
+      amt.className = 'trip-amt';
+      amt.textContent = (Number(r.amount) + Number(r.baggage_fee)).toFixed(2);
+      li.appendChild(line);
+      li.appendChild(badge);
+      li.appendChild(amt);
       if (r.status === 'CONFIRMED') {
         const btn = document.createElement('button');
         btn.type = 'button';
+        btn.className = 'danger-text';
         btn.textContent = 'Cancel';
         btn.setAttribute('aria-label', `Cancel booking ${r.booking_id}`);
         btn.addEventListener('click', () => cancelTrip(r.booking_id));

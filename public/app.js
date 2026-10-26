@@ -12,7 +12,24 @@ const state = {
   logTab: 'audit',
   auditSince: 0,
   prevRows: new Map(),   // table row key -> JSON text, for the flash comparison
+  lastTrace: [],         // steps of the most recent action, for future views
 };
+
+// Status values -> badge color kind. Columns named in BADGE_COLS render as
+// badges instead of plain text so the table reads at a glance.
+const BADGE_KIND = {
+  CONFIRMED: 'ok', PAID: 'ok', INSERT: 'ok', OK: 'ok',
+  CANCELLED: 'err', FAILED: 'err', DELETE: 'err', ERROR: 'err',
+  UPDATE: 'info', WAIT: 'wait',
+};
+const BADGE_COLS = new Set(['status', 'action', 'payment_status']);
+
+function badgeCell(text) {
+  const s = document.createElement('span');
+  s.className = 'badge b-' + (BADGE_KIND[text] || 'wait');
+  s.textContent = text;
+  return s;
+}
 
 const $ = (id) => document.getElementById(id);
 
@@ -241,7 +258,11 @@ async function refreshTable() {
       state.prevRows.set(key, json);
       for (const c of body.columns) {
         const td = document.createElement('td');
-        td.textContent = row[c] == null ? 'NULL' : String(row[c]);
+        if (BADGE_COLS.has(c) && BADGE_KIND[row[c]]) {
+          td.appendChild(badgeCell(row[c]));
+        } else {
+          td.textContent = row[c] == null ? 'NULL' : String(row[c]);
+        }
         tr.appendChild(td);
       }
       tbody.appendChild(tr);
@@ -324,6 +345,7 @@ async function pollGeneral() {
 
 // Transaction trace: the ordered steps of the last action, newest at the top.
 function renderTrace(trace) {
+  state.lastTrace = trace.slice();
   const list = $('trace-list');
   list.textContent = '';
   const items = trace.slice().reverse();
@@ -382,11 +404,14 @@ async function runQuery() {
 // ---------- top bar ----------
 
 async function checkHealth() {
+  const el = $('db-status');
   try {
     await api('/api/health');
-    $('db-status').textContent = 'connected';
+    el.textContent = 'connected';
+    el.className = 'ok';
   } catch (e) {
-    $('db-status').textContent = 'not connected';
+    el.textContent = 'not connected';
+    el.className = 'bad';
   }
 }
 
@@ -426,6 +451,9 @@ function init() {
   $('btn-cancel').addEventListener('click', runCancel);
   $('btn-isolation').addEventListener('click', runIsolationDemo);
   $('btn-run').addEventListener('click', runQuery);
+  $('sql-input').addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); runQuery(); }
+  });
   $('btn-reset').addEventListener('click', resetDemo);
   for (const b of document.querySelectorAll('button[data-demo]')) {
     b.addEventListener('click', () => runConceptDemo(b.dataset.demo));

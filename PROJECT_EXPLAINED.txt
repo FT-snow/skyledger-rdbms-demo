@@ -592,6 +592,8 @@ Concepts used, one line each:
   pre-written SELECTs; anything not in the map is refused.
 - Environment variables -- DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, PORT come
   from .env; .env is git-ignored, .env.example documents the names.
+- CSS custom properties (design tokens) -- palette, fonts and spacing are
+  defined once in :root of style.css, so the whole look lives in one place.
 - Static file serving -- express.static serves public/ (index.html,
   style.css, app.js) so the browser can load the UI.
 
@@ -795,6 +797,12 @@ F. CHANGELOG
 - Added sql/1nf.sql, sql/2nf.sql, sql/3nf.sql: 1NF/2NF/3NF walk-through
   views over unnormalized_bookings.
 - Added README.md and this PROJECT_EXPLAINED.txt.
+- UI polish pass: design tokens in CSS custom properties (warm monochrome
+  palette, pastel status colors), hairline section dividers, near-black
+  primary buttons with a segmented view switch, pastel status badges in
+  tables/logs/trips/e-ticket, sticky table headers with row hover, dashed
+  aisle in the cabin map, Ctrl+Enter runs the SQL box, status dot in the
+  top bar, refined e-ticket block.
 - Verified end to end against MySQL 8.0.46: all 8 demo steps, forced
   rollback leaving zero partial rows, constraint error codes 1452 / 1062 /
   3819 / 1644, isolation demo B failing with 1644 after A commits, and
