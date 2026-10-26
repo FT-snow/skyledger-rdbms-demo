@@ -16,6 +16,9 @@
 
 * { box-sizing: border-box; }
 
+/* the hidden attribute must always win over any display rule */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--bg);
@@ -151,3 +154,99 @@ tr.flash td { animation: rowflash 150ms ease-out; }
 .log-list .status-err { color: var(--danger); }
 .log-list .actor { font-weight: 600; margin-right: 8px; }
 .log-list .status-wait { color: var(--muted); }
+
+/* ============ booking site view ============ */
+#view-switch { display: flex; gap: 8px; }
+#view-switch button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+
+#site-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 16px;
+  padding: 16px;
+  height: calc(100vh - 48px);
+}
+#site-main { overflow-y: auto; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+#site-main section {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  padding: 16px;
+}
+#shop-side {
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  padding: 16px;
+}
+h2.step { margin: 0 0 8px; }
+#shop-side h2.step { margin-top: 24px; }
+#shop-side h2.step:first-child { margin-top: 0; }
+
+/* flight list: one row per flight, not a card grid */
+#flight-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.flight-row {
+  width: 100%;
+  display: flex;
+  gap: 16px;
+  align-items: baseline;
+  text-align: left;
+  font-family: var(--sans);
+  font-size: 16px;
+}
+.flight-row .fno { font-family: var(--mono); font-weight: 600; min-width: 64px; }
+.flight-row .route { flex: 1; min-width: 0; }
+.flight-row .meta { font-family: var(--mono); font-size: 14px; color: var(--muted); white-space: nowrap; }
+.flight-row.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* cabin map: row number + seats A-D */
+#cabin-map { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.cabin-row { display: grid; grid-template-columns: 32px repeat(4, 72px); gap: 8px; align-items: center; }
+.cabin-row .rowno { font-family: var(--mono); font-size: 14px; color: var(--muted); text-align: right; }
+.seat.biz { border-color: var(--ink); }
+
+/* checkout summary */
+#site-summary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 16px;
+  font-size: 14px;
+  margin: 8px 0;
+}
+#site-summary dt { color: var(--muted); }
+#site-summary dd { margin: 0; font-family: var(--mono); text-align: right; overflow-wrap: anywhere; }
+#site-summary .total { font-weight: 600; color: var(--ink); }
+#site-book { margin-top: 8px; }
+#site-book:disabled { background: var(--line); border-color: var(--line); color: var(--muted); }
+
+/* e-ticket */
+#site-ticket { border: 1px solid var(--accent); padding: 8px 12px; margin-top: 12px; }
+#site-ticket h3 { margin: 0 0 8px; font-size: 16px; color: var(--accent); }
+#site-ticket .trow {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-family: var(--mono);
+  font-size: 14px;
+  padding: 2px 0;
+}
+#site-ticket .trow span:first-child { color: var(--muted); }
+#site-ticket .hint { margin: 8px 0 0; }
+
+/* my trips */
+#site-trips { list-style: none; margin: 8px 0 0; padding: 0; font-family: var(--mono); font-size: 14px; }
+#site-trips li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  padding: 4px 0;
+}
+#site-trips .trip-line { overflow-wrap: anywhere; }
+#site-trips button { font-size: 14px; padding: 4px 8px; }
+
+/* new-passenger details block */
+#new-pax summary { cursor: pointer; margin: 8px 0; color: var(--accent); }
+#btn-add-pax { margin-top: 8px; }

@@ -595,6 +595,21 @@ Concepts used, one line each:
 - Static file serving -- express.static serves public/ (index.html,
   style.css, app.js) so the browser can load the UI.
 
+Two frontend views share one API (switch with the top-bar buttons):
+- Booking site (site.js): a real passenger flow -- flight list with the
+  cheapest fare and free-seat count, a cabin seat map (rows 1-6, letters
+  A-D, business seats marked), passenger signup (POST /api/passengers,
+  where the UNIQUE(email) constraint rejects duplicates with error 1062),
+  a checkout whose Confirm button fires the same POST /api/book one-
+  transaction endpoint and renders its trace next to the button, an
+  e-ticket read back from committed rows (GET /api/bookings?passenger_id=),
+  and "My trips" with Cancel (POST /api/cancel/:id).
+- DBMS console (app.js): the teaching view described in this file.
+
+A booking made on the site is the same transaction shown in the console:
+book on the site, switch to the console, and the new row, the audit log
+entries and the general log are all there.
+
 How everything is connected:
 
     browser                      Node.js server                 MySQL 8
@@ -607,7 +622,8 @@ How everything is connected:
                                        +----------- polled back -----------+
 
 Request path of one booking (click -> committed row):
-1. Click "Book seat" in the browser.
+1. Click "Book seat" in the console, or "Confirm booking" on the booking
+   site -- both POST /api/book with {flight_id, seat_id, passenger_id, baggage_kg}.
 2. app.js POSTs /api/book with {flight_id, seat_id, passenger_id, baggage_kg}.
 3. Express route validates the numbers, borrows a connection from the pool.
 4. BEGIN; SELECT ... FOR UPDATE locks the seat row.
@@ -769,6 +785,13 @@ F. CHANGELOG
   booked seats and aria-labels, 2s polling with 150ms row flash, SQL box,
   audit/general/trace log tabs, concept and normalization demo buttons,
   inline errors.
+- Added passenger booking site view (public/site.js) with a top-bar view
+  switcher: flight list (cheapest fare, free-seat count via subqueries in
+  GET /api/flights), cabin seat map, passenger signup (POST /api/passengers,
+  UNIQUE(email) enforced -> error 1062), checkout calling the same
+  POST /api/book transaction with its trace shown beside the button,
+  e-ticket read back from committed rows via GET /api/bookings, and
+  "My trips" with cancel.
 - Added sql/1nf.sql, sql/2nf.sql, sql/3nf.sql: 1NF/2NF/3NF walk-through
   views over unnormalized_bookings.
 - Added README.md and this PROJECT_EXPLAINED.txt.

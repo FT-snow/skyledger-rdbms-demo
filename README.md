@@ -3,7 +3,8 @@
 A small local web app demonstrating normalization (1NF-3NF), transactions,
 ACID, constraints, triggers, locking/isolation and database logs on MySQL 8.
 The audience watches the database change in real time while the presenter
-runs actions or raw SQL.
+runs actions or raw SQL. Two views: a passenger-facing booking site
+(flights, cabin seat map, checkout) and the DBMS console behind it.
 
 ## Prerequisites
 

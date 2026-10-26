@@ -53,13 +53,55 @@ app.get('/api/health', wrap(async (req, res) => {
 
 app.get('/api/flights', wrap(async (req, res) => {
   // Two joins to the same table: origin and destination are both airports.
+  // Subqueries give the booking site what it needs: cheapest fare and how
+  // many seats are still free (a seat is free when no CONFIRMED booking
+  // points at it).
   const [rows] = await pool.query(
     `SELECT f.flight_id, f.flight_no, ao.code AS origin_code, ao.city AS origin_city,
-            ad.code AS dest_code, ad.city AS dest_city, f.departs_at
+            ad.code AS dest_code, ad.city AS dest_city, f.departs_at,
+            (SELECT MIN(s.fare) FROM seats s WHERE s.flight_id = f.flight_id) AS min_fare,
+            (SELECT COUNT(*) FROM seats s
+             LEFT JOIN bookings b ON b.seat_id = s.seat_id AND b.status = 'CONFIRMED'
+             WHERE s.flight_id = f.flight_id AND b.booking_id IS NULL) AS free_seats
      FROM flights f
      JOIN airports ao ON ao.airport_id = f.origin_id
      JOIN airports ad ON ad.airport_id = f.dest_id
      ORDER BY f.flight_id`);
+  res.json({ ok: true, rows });
+}));
+
+app.post('/api/passengers', wrap(async (req, res) => {
+  const b = req.body || {};
+  const name = String(b.name || '').trim();
+  const email = String(b.email || '').trim().toLowerCase();
+  const phone = String(b.phone || '').trim();
+  if (!name || !email) return res.status(400).json({ ok: false, code: 'BAD_INPUT', message: 'name and email are required' });
+  try {
+    const [r] = await pool.query('INSERT INTO passengers (name, email, phone) VALUES (?, ?, ?)', [name, email, phone || null]);
+    const [rows] = await pool.query('SELECT passenger_id, name, email, phone FROM passengers WHERE passenger_id = ?', [r.insertId]);
+    res.json({ ok: true, row: rows[0] });
+  } catch (e) {
+    // the UNIQUE(email) constraint did the validation for us
+    if (e.errno === 1062) return res.status(409).json({ ok: false, code: 1062, message: 'email already registered — pick that passenger from the list instead' });
+    throw e;
+  }
+}));
+
+app.get('/api/bookings', wrap(async (req, res) => {
+  // "My trips": one passenger's bookings with flight, seat, payment and bag
+  // fees joined in, newest first.
+  const pid = Number(req.query.passenger_id);
+  if (!Number.isInteger(pid) || pid <= 0) return res.status(400).json({ ok: false, code: 'BAD_INPUT', message: 'passenger_id must be a positive integer' });
+  const [rows] = await pool.query(
+    `SELECT bk.booking_id, bk.status, bk.created_at, f.flight_no, s.seat_no,
+            IFNULL(pay.amount, 0) AS amount, IFNULL(pay.status, '-') AS payment_status,
+            (SELECT IFNULL(SUM(g.fee), 0) FROM baggage g WHERE g.booking_id = bk.booking_id) AS baggage_fee
+     FROM bookings bk
+     JOIN flights f ON f.flight_id = bk.flight_id
+     JOIN seats s ON s.seat_id = bk.seat_id
+     LEFT JOIN payments pay ON pay.booking_id = bk.booking_id
+     WHERE bk.passenger_id = ?
+     ORDER BY bk.booking_id DESC`, [pid]);
   res.json({ ok: true, rows });
 }));
 
