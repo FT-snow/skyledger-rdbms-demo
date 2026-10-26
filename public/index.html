@@ -1,0 +1,94 @@
+<!doctype html>
+<!-- skyledger UI: three columns — actions (left), data + SQL (center), logs (right). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SKYLEDGER — airline seat booking</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header id="topbar">
+  <span id="app-name">SKYLEDGER</span>
+  <span id="db-status">checking</span>
+  <button id="btn-reset" type="button">Reset demo data</button>
+</header>
+
+<main id="layout">
+  <!-- LEFT: actions -->
+  <section id="col-actions" aria-label="Actions">
+    <h2>Book a seat</h2>
+    <label for="flight-select">Flight</label>
+    <select id="flight-select"></select>
+
+    <div id="seat-map" role="group" aria-label="Seat map"></div>
+    <p id="seat-hint">Booked seats are crossed out. Click a booked seat to cancel it.</p>
+
+    <label for="passenger-select">Passenger</label>
+    <select id="passenger-select"></select>
+
+    <label for="baggage-kg">Baggage kg (0 = none, 1&ndash;40)</label>
+    <input id="baggage-kg" type="number" min="0" max="40" step="1" value="0">
+
+    <button id="btn-book" type="button" class="primary">Book seat</button>
+
+    <label for="fail-at">Book with forced failure at</label>
+    <select id="fail-at">
+      <option value="">(no failure)</option>
+      <option value="booking">after booking</option>
+      <option value="payment">after payment</option>
+      <option value="baggage">after baggage</option>
+    </select>
+    <button id="btn-book-fail" type="button">Book with forced failure</button>
+    <button id="btn-cancel" type="button" disabled>Cancel booking</button>
+    <p id="book-error" class="error" role="alert"></p>
+
+    <h2>Concepts</h2>
+    <div class="concept-grid">
+      <button type="button" data-demo="fk">FK error</button>
+      <button type="button" data-demo="unique">UNIQUE error</button>
+      <button type="button" data-demo="check">CHECK error</button>
+      <button type="button" data-demo="trigger">Trigger error</button>
+    </div>
+    <button id="btn-isolation" type="button">Isolation demo (A vs B)</button>
+    <p id="concept-error" class="error" role="alert"></p>
+
+    <h2>Normalization</h2>
+    <div class="concept-grid">
+      <button type="button" data-norm="update">Update anomaly</button>
+      <button type="button" data-norm="insert">Insert anomaly</button>
+      <button type="button" data-norm="delete">Delete anomaly</button>
+    </div>
+    <p class="hint">Each button puts its anomaly query into the SQL box. Run it and compare.</p>
+  </section>
+
+  <!-- CENTER: data -->
+  <section id="col-data" aria-label="Data">
+    <nav id="table-tabs" aria-label="Database tables"></nav>
+    <div id="table-wrap"><table id="data-table"></table></div>
+    <p id="table-error" class="error" role="alert"></p>
+
+    <h2>SQL</h2>
+    <textarea id="sql-input" rows="4" spellcheck="false"
+      placeholder="SELECT * FROM bookings LIMIT 10"></textarea>
+    <button id="btn-run" type="button" class="primary">Run query</button>
+    <p id="sql-error" class="error" role="alert"></p>
+    <div id="sql-result"><table id="sql-table"></table></div>
+  </section>
+
+  <!-- RIGHT: logs -->
+  <section id="col-logs" aria-label="Logs">
+    <nav id="log-tabs" aria-label="Logs">
+      <button type="button" data-log="audit" aria-pressed="true">Audit log</button>
+      <button type="button" data-log="general" aria-pressed="false">General log</button>
+      <button type="button" data-log="trace" aria-pressed="false">Transaction trace</button>
+    </nav>
+    <ol id="audit-list" class="log-list"></ol>
+    <ol id="general-list" class="log-list" hidden></ol>
+    <ol id="trace-list" class="log-list" hidden></ol>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
