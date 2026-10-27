@@ -557,6 +557,452 @@ because seed.sql is many statements at once and the app's own pool is
 configured to reject multi-statement text (a second defense behind the
 /api/query verb check).
 
+------------------------------------------------------------------------
+B11. THE COMPLETE SCHEMA, LINE BY LINE (schema.sql)
+------------------------------------------------------------------------
+
+This is schema.sql from top to bottom, every line explained. Use it as the
+reading companion when the teacher says "open schema.sql and explain it".
+
+The file header (comments):
+
+    -- schema.sql: creates the skyledger database, all 3NF tables,
+    -- constraints and triggers.
+    -- Run once before seed.sql (it drops and recreates the whole database):
+    --   mysql -u root -p < schema.sql
+    -- NOTE: triggers below use DELIMITER because their bodies contain ';'
+    -- plain `mysql < schema.sql` handles that; run this file only via the
+    -- mysql CLI.
+
+- Lines beginning with -- are comments; the mysql client skips them.
+- The third comment is the exact command that runs the file: the mysql
+  client reads the file and executes its statements in order.
+
+    DROP DATABASE IF EXISTS skyledger;
+
+- DROP DATABASE deletes the database and every table in it.
+- IF EXISTS prevents an error on a fresh machine where it does not exist
+  yet. WHY first: it makes the script re-runnable -- running it twice can
+  never leave a stale old table behind.
+
+    CREATE DATABASE skyledger CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+- CREATE DATABASE creates an empty database.
+- CHARACTER SET utf8mb4: text is stored as full Unicode (4-byte UTF-8, so
+  names in any script are safe; the older 3-byte utf8 is not).
+- COLLATE utf8mb4_unicode_ci: the string comparison rules; _ci means
+  case-insensitive, so 'Asha@Mail.com' equals 'asha@mail.com' in UNIQUE
+  checks and WHERE comparisons.
+
+    USE skyledger;
+
+- USE makes every following statement run inside this database, without a
+  skyledger. prefix on each table name.
+
+TABLE 1: airports
+
+    CREATE TABLE airports (
+      airport_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      code       CHAR(3)       NOT NULL UNIQUE,
+      city       VARCHAR(100)  NOT NULL
+    ) ENGINE = InnoDB;  -- InnoDB: transactions, row locks and foreign keys
+
+Line by line:
+- CREATE TABLE airports ( ... ): defines a new table named airports; inside
+  the brackets, every line declares one column or one constraint.
+- airport_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY: the identifier column.
+  INT = 32-bit whole number. UNSIGNED = no negative values (ids never need
+  to be negative; this doubles the positive range). AUTO_INCREMENT = MySQL
+  assigns 1, 2, 3 ... automatically when an INSERT omits the column.
+  PRIMARY KEY = the unique row identifier: never NULL, never duplicated;
+  InnoDB physically stores the table sorted by this column (the clustered
+  index). It is a "surrogate" key -- meaningless to the business, it only
+  identifies the row.
+- code CHAR(3) NOT NULL UNIQUE: CHAR(3) = fixed width, exactly three
+  characters -- right for codes like 'DEL' (every value the same length,
+  fast to compare). NOT NULL = required. UNIQUE = a second 'DEL' is
+  rejected with error 1062. This is the business key, the value humans use.
+- city VARCHAR(100) NOT NULL: VARCHAR = variable-length text up to 100
+  characters; only the bytes actually used are stored, unlike CHAR.
+- ) ENGINE = InnoDB;: picks the storage engine. InnoDB provides
+  transactions, row locks and foreign keys; the old default MyISAM offers
+  none of these. The trailing comment documents WHY InnoDB.
+
+TABLE 2: flights
+
+    CREATE TABLE flights (
+      flight_id  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      flight_no  VARCHAR(8)   NOT NULL UNIQUE,
+      origin_id  INT UNSIGNED NOT NULL,
+      dest_id    INT UNSIGNED NOT NULL,
+      departs_at DATETIME     NOT NULL,
+      CONSTRAINT fk_flight_origin FOREIGN KEY (origin_id) REFERENCES airports (airport_id) ON DELETE RESTRICT,
+      CONSTRAINT fk_flight_dest   FOREIGN KEY (dest_id)   REFERENCES airports (airport_id) ON DELETE RESTRICT,
+      CONSTRAINT chk_origin_diff_dest CHECK (origin_id <> dest_id)
+    ) ENGINE = InnoDB;
+
+Line by line:
+- flight_id ... PRIMARY KEY: the same surrogate auto-increment id pattern.
+- flight_no VARCHAR(8) NOT NULL UNIQUE: the human-readable code ('SK101').
+  VARCHAR because flight numbers vary in length; UNIQUE so a second SK101
+  is impossible (error 1062).
+- origin_id / dest_id INT UNSIGNED NOT NULL: the two endpoints of the
+  route. As plain columns they mean nothing yet -- the CONSTRAINT lines
+  below turn them into foreign keys. NOT NULL because a flight without an
+  origin is meaningless.
+- departs_at DATETIME NOT NULL: date plus time of departure. DATETIME
+  stores wall-clock time without timezone conversion (fine for a local
+  demo).
+- CONSTRAINT fk_flight_origin FOREIGN KEY (origin_id) REFERENCES airports
+  (airport_id): names the constraint (fk_ = table_relation convention),
+  declares origin_id as a foreign key pointing at airports.airport_id.
+  From now on MySQL refuses any origin_id that does not exist (error 1452)
+  -- referential integrity, enforced by the database.
+- ON DELETE RESTRICT: deleting an airport that flights still reference is
+  refused with error 1451. The parent cannot vanish while children exist.
+  (The alternatives would be CASCADE -- delete the children too -- or SET
+  NULL; RESTRICT is the safe choice for a booking system.)
+- CONSTRAINT fk_flight_dest ...: the destination gets its own identical
+  foreign key. Two constraints, not one, because one row holds two airport
+  references.
+- CONSTRAINT chk_origin_diff_dest CHECK (origin_id <> dest_id): a CHECK
+  constraint is a boolean rule every row must satisfy. <> means "not
+  equal": a flight cannot depart from and arrive at the same airport.
+  Violation raises error 3819.
+
+TABLE 3: seats
+
+    CREATE TABLE seats (
+      seat_id   INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      flight_id INT UNSIGNED NOT NULL,
+      seat_no   VARCHAR(4)   NOT NULL,               -- '1A' .. '6D'
+      class     ENUM('ECONOMY','BUSINESS') NOT NULL, -- ENUM: only these values are legal
+      fare      DECIMAL(10,2) NOT NULL,              -- DECIMAL, not FLOAT: exact money
+      CONSTRAINT uq_flight_seat UNIQUE (flight_id, seat_no),
+      CONSTRAINT fk_seat_flight FOREIGN KEY (flight_id) REFERENCES flights (flight_id) ON DELETE RESTRICT
+    ) ENGINE = InnoDB;
+
+Line by line:
+- seat_id ... PRIMARY KEY: the surrogate id again.
+- flight_id INT UNSIGNED NOT NULL: which flight this seat belongs to (the
+  FK line below enforces it).
+- seat_no VARCHAR(4) NOT NULL: the label '1A' .. '6D'; VARCHAR because it
+  mixes a digit and a letter.
+- class ENUM('ECONOMY','BUSINESS') NOT NULL: ENUM = the column may hold
+  ONLY the listed strings; anything else is refused (error 1265 for an
+  invalid value). Internally MySQL stores the tiny integer 1 or 2, so ENUM
+  is compact. It is a constraint disguised as a data type.
+- fare DECIMAL(10,2) NOT NULL: exact fixed-point money -- up to 10 digits
+  total, 2 of them after the decimal point (max 99,999,999.99). WHY not
+  FLOAT/DOUBLE: those are binary approximations in which 0.1 is not exactly
+  representable, so money arithmetic drifts. DECIMAL stores digits
+  exactly; 8500.00 stays 8500.00.
+- CONSTRAINT uq_flight_seat UNIQUE (flight_id, seat_no): a COMPOSITE UNIQUE
+  over two columns. Neither column alone is unique -- '2A' exists on every
+  flight -- but the PAIR (flight 1, '2A') must be unique. This is what
+  makes a seat identifiable, and it backs the double-booking logic.
+  Violation: error 1062.
+- CONSTRAINT fk_seat_flight ... ON DELETE RESTRICT: seats point at a real
+  flight; a flight that still has seats cannot be deleted.
+
+TABLE 4: passengers
+
+    CREATE TABLE passengers (
+      passenger_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      name         VARCHAR(120) NOT NULL,
+      email        VARCHAR(200) NOT NULL UNIQUE,  -- one email = one passenger record
+      phone        VARCHAR(20)  NULL              -- NULL means "not given"
+    ) ENGINE = InnoDB;
+
+- passenger_id ... PRIMARY KEY: the surrogate id.
+- name VARCHAR(120) NOT NULL: the required display name.
+- email VARCHAR(200) NOT NULL UNIQUE: the business key of a person. NOT
+  NULL + UNIQUE together mean every passenger has exactly one email and no
+  two passengers share one. The signup endpoint relies on this: a
+  duplicate email is rejected by MySQL (1062), not by JavaScript.
+- phone VARCHAR(20) NULL: explicitly nullable -- a missing phone is
+  "unknown", which is different from an empty string. NULL is the honest
+  modeling choice, and the column comment says so.
+
+TABLE 5: bookings (the worked example of B1)
+
+    CREATE TABLE bookings (
+      booking_id   INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      flight_id    INT UNSIGNED NOT NULL,
+      seat_id      INT UNSIGNED NOT NULL,
+      passenger_id INT UNSIGNED NOT NULL,
+      status       ENUM('CONFIRMED','CANCELLED') NOT NULL DEFAULT 'CONFIRMED',
+      created_at   DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),  -- ms precision for log ordering
+      CONSTRAINT fk_booking_flight    FOREIGN KEY (flight_id)    REFERENCES flights (flight_id)      ON DELETE RESTRICT,
+      CONSTRAINT fk_booking_seat      FOREIGN KEY (seat_id)      REFERENCES seats (seat_id)          ON DELETE RESTRICT,
+      CONSTRAINT fk_booking_passenger FOREIGN KEY (passenger_id) REFERENCES passengers (passenger_id) ON DELETE RESTRICT
+    ) ENGINE = InnoDB;
+
+New things here (everything else is explained line by line in B1):
+- status ENUM('CONFIRMED','CANCELLED') ... DEFAULT 'CONFIRMED': two legal
+  values, and INSERTs that omit status get 'CONFIRMED' automatically. A
+  cancellation never deletes the row -- it flips the status, so history
+  stays.
+- created_at DATETIME(3) ... DEFAULT CURRENT_TIMESTAMP(3): the (3) is
+  millisecond precision, needed because the demo orders events by time.
+  DEFAULT CURRENT_TIMESTAMP(3) = the database stamps the row at INSERT
+  time -- no application clock involved (one less way to be wrong).
+- Three foreign keys, one per reference: flight, seat, passenger. Each
+  would raise 1452 on a bad value and each blocks deletion of its parent
+  (1451).
+
+TABLE 6: payments
+
+    CREATE TABLE payments (
+      payment_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      booking_id INT UNSIGNED NOT NULL UNIQUE,
+      amount     DECIMAL(10,2) NOT NULL,
+      status     ENUM('PAID','FAILED') NOT NULL DEFAULT 'PAID',
+      paid_at    DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+      CONSTRAINT fk_payment_booking FOREIGN KEY (booking_id) REFERENCES bookings (booking_id) ON DELETE RESTRICT,
+      CONSTRAINT chk_amount_nonneg  CHECK (amount >= 0)
+    ) ENGINE = InnoDB;
+
+New things:
+- booking_id INT UNSIGNED NOT NULL UNIQUE: a column that is a foreign key
+  AND unique at once -- that combination IS the one-to-one relationship.
+  One booking can have at most one payment row; a second is refused (1062).
+  The FK answers "does the parent exist?", UNIQUE adds "at most one child".
+- status ENUM('PAID','FAILED') ... DEFAULT 'PAID': voiding a payment after
+  a cancellation sets FAILED; the row is never deleted, so the audit
+  history survives.
+- CONSTRAINT chk_amount_nonneg CHECK (amount >= 0): no negative payments,
+  enforced by the database itself (error 3819).
+
+TABLE 7: baggage
+
+    CREATE TABLE baggage (
+      baggage_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      booking_id INT UNSIGNED NOT NULL,
+      kg         INT NOT NULL,
+      fee        DECIMAL(10,2) NOT NULL,
+      CONSTRAINT fk_baggage_booking FOREIGN KEY (booking_id) REFERENCES bookings (booking_id) ON DELETE RESTRICT,
+      CONSTRAINT chk_kg_range       CHECK (kg BETWEEN 1 AND 40)
+    ) ENGINE = InnoDB;
+
+New things:
+- No UNIQUE on booking_id, on purpose: a booking may have SEVERAL bags --
+  a one-to-many relationship, unlike payments' one-to-one.
+- kg INT NOT NULL + CHECK (kg BETWEEN 1 AND 40): BETWEEN is inclusive --
+  1 to 40; 0 and 50 are refused (3819). The airline's baggage rule lives
+  in the schema, not in a form validator.
+
+TABLE 8: audit_log
+
+    CREATE TABLE audit_log (
+      log_id     BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      table_name VARCHAR(64) NOT NULL,
+      action     ENUM('INSERT','UPDATE','DELETE') NOT NULL,
+      row_id     BIGINT UNSIGNED NOT NULL,          -- PK value of the changed row
+      old_data   JSON NULL,                         -- before-image; NULL for INSERT
+      new_data   JSON NULL,                         -- after-image; NULL for DELETE
+      logged_at  DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+    ) ENGINE = InnoDB;
+
+New things:
+- log_id BIGINT UNSIGNED ...: BIGINT = 64-bit integer; the audit log grows
+  forever, so it gets the bigger type (and its id space can never be
+  confused with the tables' INT ids).
+- table_name VARCHAR(64): which table changed. A text label, NOT a foreign
+  key -- on purpose: audit rows must survive even if a table is renamed or
+  dropped.
+- action ENUM('INSERT','UPDATE','DELETE'): exactly one of the three.
+- row_id BIGINT UNSIGNED NOT NULL: the primary key of the changed row, so
+  each audit entry can be joined back to the row it describes.
+- old_data JSON NULL / new_data JSON NULL: JSON is a native column type --
+  MySQL validates the text is well-formed JSON and lets queries reach
+  inside it (new_data->>'$.status'). old_data is the BEFORE image (NULL
+  for inserts, because there was no before), new_data the AFTER image
+  (NULL for deletes). Both NULL cannot happen by trigger design.
+- No foreign keys on this table, on purpose: an audit trail is append-only
+  and independent of the tables it describes.
+
+TABLE 9: unnormalized_bookings (the teaching anti-pattern)
+
+    CREATE TABLE unnormalized_bookings (
+      unnorm_id       INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      booking_no      VARCHAR(10)   NOT NULL,        -- NOT NULL on purpose: it makes the
+      passenger_name  VARCHAR(120)  NOT NULL,        --   insert anomaly demo fail loudly
+      passenger_email VARCHAR(200)  NOT NULL,
+      flight_no       VARCHAR(8)    NOT NULL,
+      origin_city     VARCHAR(100)  NOT NULL,
+      dest_city       VARCHAR(100)  NOT NULL,
+      seat_no         VARCHAR(4)    NOT NULL,
+      fare            DECIMAL(10,2) NOT NULL,
+      payment_status  VARCHAR(20)   NOT NULL,
+      baggage         VARCHAR(100)  NOT NULL DEFAULT ''  -- '15kg,7kg' or ''
+    ) ENGINE = InnoDB;
+
+- Every fact of the booking AND of the passenger AND of the flight is
+  copied into one row: that repetition is the update anomaly, the NOT NULL
+  columns without defaults are the insert anomaly, and flight facts that
+  exist only here are the delete anomaly (all demonstrated in B2).
+- baggage VARCHAR(100) NOT NULL DEFAULT '': the 1NF violation -- a LIST of
+  bags ('15kg,7kg') inside one cell. DEFAULT '' allows bookings without
+  bags. The 1NF view splits this column into rows (B2).
+- payment_status is VARCHAR(20), not an ENUM -- the flat table lacks even
+  the type-level protections the real tables have. Part of the lesson.
+
+TABLE 10: demo_numbers
+
+    CREATE TABLE demo_numbers (
+      n INT UNSIGNED PRIMARY KEY
+    ) ENGINE = InnoDB;
+
+- One column, which is itself the primary key: the numbers 1..8. This is a
+  "tally table", the standard SQL trick for splitting a list into rows:
+  JOIN the list column against these numbers and take the n-th piece with
+  SUBSTRING_INDEX. Used only by the 1NF view (B2).
+
+THE TRIGGERS (11 of them)
+
+First, the DELIMITER mechanic, used by all of them:
+
+    DELIMITER ;;
+    ...trigger body, which contains ; inside...
+    END;;
+    DELIMITER ;
+
+- DELIMITER ;; tells the mysql CLIENT "statements now end with ;;, not ;".
+  WHY: a trigger body contains ordinary ';' characters (the SELECT, the IF
+  lines). Without the swap, the client would cut the CREATE TRIGGER at the
+  first ';' and MySQL would see a broken statement. After END;;,
+  DELIMITER ; restores the normal separator. DELIMITER is a client command,
+  not SQL -- which is why schema.sql must be run through the mysql CLI.
+
+Trigger 1: trg_bookings_no_double_seat (the business rule)
+
+    CREATE TRIGGER trg_bookings_no_double_seat BEFORE INSERT ON bookings
+    FOR EACH ROW
+    BEGIN
+      IF NEW.status = 'CONFIRMED' AND EXISTS (
+        SELECT 1 FROM bookings b
+        WHERE b.seat_id = NEW.seat_id AND b.status = 'CONFIRMED'
+      ) THEN
+        SIGNAL SQLSTATE '45000'
+          SET MESSAGE_TEXT = 'Seat already has a CONFIRMED booking';
+      END IF;
+    END;;
+
+- CREATE TRIGGER <name> BEFORE INSERT ON bookings: fires before every
+  INSERT into bookings is applied. BEFORE means it can abort the write;
+  AFTER (used below for audit) means the row is already stored.
+- FOR EACH ROW: runs once per affected row -- an INSERT of 3 rows fires it
+  3 times.
+- BEGIN ... END: a compound block, needed because the body holds more than
+  one statement.
+- NEW is the row being inserted (OLD is the before-image in UPDATE/DELETE
+  triggers). NEW.status reads the incoming value.
+- EXISTS (SELECT 1 FROM bookings b WHERE b.seat_id = NEW.seat_id AND
+  b.status = 'CONFIRMED'): EXISTS is TRUE when the subquery returns at
+  least one row; SELECT 1 is convention -- we test existence, not values.
+  The subquery asks: does ANOTHER confirmed booking already occupy this
+  seat?
+- SIGNAL SQLSTATE '45000': raise an error from inside the database. 45000
+  is the SQL standard's "unhandled user-defined exception" class; MySQL
+  surfaces it to the client as error 1644 (ER_SIGNAL_EXCEPTION).
+- SET MESSAGE_TEXT = '...': the human-readable message the client sees.
+- END IF closes the IF. END closes the BEGIN block.
+- WHY a trigger instead of app code: it runs inside the same transaction
+  as the insert, no client can bypass it (console, script, anything), and
+  it doubles as the isolation demo's proof (B6).
+
+Trigger 2: trg_bookings_no_reconfirm (the same rule for UPDATE)
+
+    CREATE TRIGGER trg_bookings_no_reconfirm BEFORE UPDATE ON bookings
+    FOR EACH ROW
+    BEGIN
+      IF NEW.status = 'CONFIRMED' AND OLD.status <> 'CONFIRMED' AND EXISTS (
+        SELECT 1 FROM bookings b
+        WHERE b.seat_id = NEW.seat_id AND b.status = 'CONFIRMED' AND b.booking_id <> NEW.booking_id
+      ) THEN
+        SIGNAL SQLSTATE '45000'
+          SET MESSAGE_TEXT = 'Seat already has a CONFIRMED booking';
+      END IF;
+    END;;
+
+- BEFORE UPDATE ON bookings: fires before an UPDATE is applied.
+- NEW.status = 'CONFIRMED' AND OLD.status <> 'CONFIRMED': react only when
+  an update MOVES a row into CONFIRMED (from CANCELLED). Ordinary updates
+  of an already-confirmed row pass through.
+- b.booking_id <> NEW.booking_id: exclude the row being updated from the
+  duplicate check -- otherwise it would find ITSELF and always abort. This
+  closes the loophole of re-confirming a cancelled booking onto a seat
+  that another passenger took meanwhile.
+
+Trigger 3: trg_bookings_after_insert (audit)
+
+    CREATE TRIGGER trg_bookings_after_insert AFTER INSERT ON bookings
+    FOR EACH ROW
+      INSERT INTO audit_log (table_name, action, row_id, old_data, new_data)
+      VALUES ('bookings', 'INSERT', NEW.booking_id, NULL,
+              JSON_OBJECT('flight_id', NEW.flight_id, 'seat_id', NEW.seat_id,
+                          'passenger_id', NEW.passenger_id, 'status', NEW.status));;
+
+- AFTER INSERT: fires after the row is actually stored -- if the insert
+  failed, no audit row exists.
+- The body is a single statement, so BEGIN/END is not required.
+- The INSERT writes the audit row INSIDE the same transaction as the
+  booking: if the transaction rolls back, the audit row vanishes with it.
+  The audit trail only ever describes committed reality.
+- JSON_OBJECT('key', value, ...): builds a JSON document from pairs -- the
+  after-image of the new booking, stored in new_data.
+- old_data = NULL: nothing existed before an INSERT.
+
+Trigger 4: trg_bookings_after_update (audit)
+
+    CREATE TRIGGER trg_bookings_after_update AFTER UPDATE ON bookings
+    FOR EACH ROW
+      INSERT INTO audit_log (table_name, action, row_id, old_data, new_data)
+      VALUES ('bookings', 'UPDATE', NEW.booking_id,
+              JSON_OBJECT('status', OLD.status),
+              JSON_OBJECT('status', NEW.status));;
+
+- OLD = the row BEFORE the update, NEW = after. Both images are stored, so
+  a CONFIRMED -> CANCELLED flip leaves evidence of what the row used to be.
+- Only 'status' is captured because it is the only column that changes in
+  this app; more columns would mean more JSON pairs.
+
+Trigger 5: trg_bookings_after_delete (audit)
+
+    CREATE TRIGGER trg_bookings_after_delete AFTER DELETE ON bookings
+    FOR EACH ROW
+      INSERT INTO audit_log (table_name, action, row_id, old_data, new_data)
+      VALUES ('bookings', 'DELETE', OLD.booking_id,
+              JSON_OBJECT('flight_id', OLD.flight_id, 'seat_id', OLD.seat_id,
+                          'passenger_id', OLD.passenger_id, 'status', OLD.status),
+              NULL);;
+
+- AFTER DELETE: the row is already gone, only OLD still exists -- the
+  before-image is preserved and new_data is NULL.
+
+Triggers 6 to 11 (payments, baggage, seats) repeat the shapes above with
+different tables and JSON pairs; line by line they are trigger-3/4/5
+pattern, one audit row per changed row, same transactional behavior:
+
+    trg_payments_after_insert   AFTER INSERT ON payments -> logs booking_id,
+        amount, status as the after-image (a full booking = 2 audit rows)
+    trg_payments_after_update   AFTER UPDATE ON payments -> logs the void:
+        old_data {status: PAID}, new_data {status: FAILED}
+    trg_baggage_after_insert    AFTER INSERT ON baggage  -> logs booking_id,
+        kg, fee (so a booking with a bag writes exactly 3 audit rows)
+    trg_baggage_after_delete    AFTER DELETE ON baggage  -> logs the removed
+        bag's before-image
+    trg_seats_after_insert      AFTER INSERT ON seats    -> logs flight_id,
+        seat_no, class, fare (seeding fires these; reset clears the noise)
+    trg_seats_after_update      AFTER UPDATE ON seats    -> logs the fare
+        change, old and new
+
+Say out loud: "Ten of the eleven triggers are bookkeeping -- one audit row
+per row-level change, written inside the same transaction. The eleventh,
+the BEFORE INSERT guard, is a business rule the database enforces. Both
+kinds are invisible to application code and cannot be bypassed."
+
 ========================================================================
 C. FRONTEND AND BACKEND (CONCEPTS ONLY)
 ========================================================================
@@ -878,3 +1324,9 @@ F. CHANGELOG
   (trace + flash + trigger rows + raw SQL + general log), the complete list
   of plugins/extensions (three npm packages, none else), and why no ORM or
   frontend framework was used.
+- Added section B11 to PROJECT_EXPLAINED.txt (doc-only): the complete
+  schema.sql explained line by line -- DROP/CREATE DATABASE/USE, every
+  column of all 10 tables (types, UNSIGNED, CHAR vs VARCHAR, ENUM,
+  DECIMAL vs FLOAT, JSON, composite UNIQUE, FK ON DELETE RESTRICT, CHECK),
+  the DELIMITER mechanic, and all 11 triggers with their full code and
+  line-by-line explanations.
