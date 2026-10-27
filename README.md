@@ -4,8 +4,7 @@ A small local web app demonstrating normalization (1NF-3NF), transactions,
 ACID, constraints, triggers, locking/isolation and database logs on MySQL 8.
 The audience watches the database change live while the presenter runs
 actions or raw SQL -- via a passenger booking site and a DBMS console view.
-A minimalist landing page introduces the app; the app itself is /console.html.
-
+A minimalist landing page introduces the app, which lives at /console.html.
 ## Prerequisites
 
 Node.js 18+, npm, MySQL 8 (local), a user that can create databases.
@@ -37,5 +36,4 @@ Optional normalization walk-through (adds view tabs in the UI):
 
     SET GLOBAL log_output = 'TABLE';
     SET GLOBAL general_log = 'ON';   # off after the demo: SET GLOBAL general_log = 'OFF'
-
 All concepts, queries and triggers are explained in PROJECT_EXPLAINED.txt.
