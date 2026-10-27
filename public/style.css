@@ -52,6 +52,15 @@ body {
 #db-status::before { content: ""; width: 8px; height: 8px; background: var(--line-strong); }
 #db-status.ok::before { background: var(--accent); }
 #db-status.bad::before { background: var(--danger); }
+#back-home {
+  font-size: 14px;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+#back-home:hover { color: var(--ink); background: var(--panel-2); }
 #btn-reset { margin-left: auto; }
 
 /* view switch: segmented control, active side is near-black */

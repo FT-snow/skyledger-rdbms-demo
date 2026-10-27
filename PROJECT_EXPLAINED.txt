@@ -1072,9 +1072,21 @@ Concepts used, one line each:
   defined once in :root of style.css, so the whole look lives in one place.
 - Static file serving -- express.static serves public/ (index.html,
   style.css, app.js) so the browser can load the UI.
+- Landing page (/, landing.css, landing.js) -- a minimalist single-screen
+  hero ("Where bookings become auditable proof") followed by a scroll-driven
+  jet fly-in and a path into the app at /console.html. The fly-in is a
+  faithful vanilla port of a framer-motion scroll component (ScrollFlyIn /
+  hero-section-3): instead of useScroll + useTransform, landing.js computes
+  scrollYProgress per frame (0 = section top at viewport bottom, 1 = section
+  bottom past viewport top) and applies the same keyframes -- translateX
+  from -5*screenWidth to +2.5*screenWidth over progress 0.1..0.8, opacity
+  0->1->1->0 at 0.1/0.25/0.7/0.8 -- via requestAnimationFrame-throttled
+  scroll handling. WHY a port instead of installing React: the PRD requires
+  zero frontend dependencies, offline operation and student-explainable
+  code; the port keeps identical motion in ~40 lines. prefers-reduced-motion
+  is honored (jet shown statically, no scroll hijack).
 
-Two frontend views share one API (switch with the top-bar buttons):
-- Booking site (site.js): a real passenger flow -- flight list with the
+Two frontend views share one API (switch with the top-bar buttons):- Booking site (site.js): a real passenger flow -- flight list with the
   cheapest fare and free-seat count, a cabin seat map (rows 1-6, letters
   A-D, business seats marked), passenger signup (POST /api/passengers,
   where the UNIQUE(email) constraint rejects duplicates with error 1062),
@@ -1391,6 +1403,11 @@ F. CHANGELOG
   on C:\ with per-table .ibd files whose timestamps change on every write,
   the native mysql.exe console as an independent client, and the Wi-Fi-off
   test.
+- Added a minimalist landing page (doc-only behavior, new public files):
+  single-screen hero, scroll-driven jet fly-in (vanilla port of the
+  framer-motion ScrollFlyIn component with identical scroll math), concept
+  list and CTA into the app; the console moved to /console.html with a
+  "Landing" back link, and the README documents the new entry URL.
 - Added section B11 to PROJECT_EXPLAINED.txt (doc-only): the complete
   schema.sql explained line by line -- DROP/CREATE DATABASE/USE, every
   column of all 10 tables (types, UNSIGNED, CHAR vs VARCHAR, ENUM,

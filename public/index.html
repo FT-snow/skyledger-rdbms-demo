@@ -1,173 +1,63 @@
 <!doctype html>
-<!-- skyledger UI: three columns — actions (left), data + SQL (center), logs (right). -->
+<!-- skyledger landing: single-screen intro, scroll-flying jet section (port of
+     hero-section-3), then a path into the app. No dependencies, works offline. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SKYLEDGER — airline seat booking</title>
-<link rel="stylesheet" href="style.css">
+<title>SKYLEDGER</title>
+<link rel="stylesheet" href="landing.css">
 </head>
 <body>
-<header id="topbar">
-  <span id="app-name">SKYLEDGER</span>
-  <nav id="view-switch" aria-label="View">
-    <button type="button" data-view="site">Booking site</button>
-    <button type="button" data-view="console" aria-pressed="true">DBMS console</button>
-  </nav>
-  <span id="db-status">checking</span>
-  <button id="btn-reset" type="button">Reset demo data</button>
-</header>
 
-<!-- ============ PASSENGER-FACING BOOKING SITE ============ -->
-<div id="site-view" hidden>
-  <main id="site-main">
-    <section aria-labelledby="h-shop-flight">
-      <h2 id="h-shop-flight" class="step">1 · Choose flight</h2>
-      <ol id="flight-list"></ol>
-    </section>
+<!-- ============ HERO: single screen ============ -->
+<section id="hero">
+  <p class="eyebrow">SKYLEDGER · airline seat booking</p>
+  <h1>Where bookings become<br>auditable proof</h1>
+  <p class="sub">A flight booking system whose real story is the database:
+     normalization, transactions, ACID, locks, triggers and logs —
+     demonstrated live on MySQL.</p>
+  <div class="cta-row">
+    <a class="btn primary" href="console.html">Open the app</a>
+    <a class="btn" href="#flyin">See how it works</a>
+  </div>
+  <p class="hint">Local demo · MySQL 8 · Node.js · vanilla JS</p>
+</section>
 
-    <section aria-labelledby="h-shop-seat">
-      <h2 id="h-shop-seat" class="step">2 · Choose seat</h2>
-      <p class="hint" id="cabin-legend"></p>
-      <div id="cabin-map" role="group" aria-label="Cabin seat map"></div>
-      <p id="cabin-hint" class="hint">Booked seats are crossed out.</p>
-    </section>
-
-    <section aria-labelledby="h-shop-pax">
-      <h2 id="h-shop-pax" class="step">3 · Passenger and baggage</h2>
-      <label for="site-passenger">Passenger</label>
-      <select id="site-passenger"></select>
-
-      <details id="new-pax">
-        <summary>New passenger</summary>
-        <label for="np-name">Name</label>
-        <input id="np-name" type="text" autocomplete="off">
-        <label for="np-email">Email</label>
-        <input id="np-email" type="email" autocomplete="off">
-        <label for="np-phone">Phone (optional)</label>
-        <input id="np-phone" type="text" autocomplete="off">
-        <button id="btn-add-pax" type="button">Add passenger</button>
-        <p id="np-error" class="error" role="alert"></p>
-      </details>
-
-      <label for="site-baggage">Baggage kg (0 = none, 1&ndash;40) — 50.00 per kg</label>
-      <input id="site-baggage" type="number" min="0" max="40" step="1" value="0">
-      <p id="pax-error" class="error" role="alert"></p>
-    </section>
-  </main>
-
-  <aside id="shop-side" aria-label="Checkout">
-    <h2 class="step">Checkout</h2>
-    <dl id="site-summary">
-      <dt>Flight</dt><dd id="sum-flight">—</dd>
-      <dt>Seat</dt><dd id="sum-seat">—</dd>
-      <dt>Fare</dt><dd id="sum-fare">—</dd>
-      <dt>Baggage</dt><dd id="sum-bag">—</dd>
-      <dt class="total">Total (INR)</dt><dd class="total" id="sum-total">—</dd>
-    </dl>
-    <button id="site-book" type="button" class="primary" disabled>Confirm booking</button>
-    <p id="site-error" class="error" role="alert"></p>
-
-    <div id="site-ticket" hidden>
-      <p class="eyebrow">E-ticket</p>
-      <h3>Booking confirmed</h3>
-      <div class="trow"><span>Booking</span><span id="tkt-id"></span></div>
-      <div class="trow"><span>Flight</span><span id="tkt-flight"></span></div>
-      <div class="trow"><span>Seat</span><span id="tkt-seat"></span></div>
-      <div class="trow"><span>Passenger</span><span id="tkt-pax"></span></div>
-      <div class="trow"><span>Paid</span><span id="tkt-total"></span></div>
-      <p class="hint">One payment row (PAID). Triggers wrote the audit rows.</p>
+<!-- ============ SCROLL-FLY-IN: port of hero-section-3 ============ -->
+<section id="flyin" aria-label="Scroll animation: a jet crossing the screen">
+  <div id="flyin-target">
+    <div id="flyin-sticky">
+      <div class="z10">
+        <p class="eyebrow">Welcome to SKYLEDGER</p>
+        <h2>Where journeys leave<br>a paper trail</h2>
+      </div>
+      <div id="jet" aria-hidden="true">
+        <svg width="360" height="360" viewBox="0 0 360 360" fill="none">
+          <g transform="rotate(0 180 180)">
+            <path d="M20 186 L150 168 L162 108 L176 106 L178 166 L250 172 L268 150 L282 152 L272 178 L282 204 L268 206 L250 184 L178 190 L176 250 L162 248 L150 192 Z" fill="#1f1e1b"/>
+          </g>
+        </svg>
+      </div>
     </div>
+  </div>
+</section>
 
-    <h2 class="step">Transaction trace</h2>
-    <ol id="site-trace-list" class="log-list" aria-label="Transaction trace"></ol>
+<!-- ============ CONCEPTS + CTA ============ -->
+<section id="after">
+  <p class="eyebrow">What the demo shows</p>
+  <div class="concept-row">
+    <div class="concept"><span class="idx">01</span><span>Normalization</span></div>
+    <div class="concept"><span class="idx">02</span><span>Transactions</span></div>
+    <div class="concept"><span class="idx">03</span><span>Constraints</span></div>
+    <div class="concept"><span class="idx">04</span><span>Triggers</span></div>
+    <div class="concept"><span class="idx">05</span><span>Locking</span></div>
+    <div class="concept"><span class="idx">06</span><span>Logs</span></div>
+  </div>
+  <a class="btn primary big" href="console.html">Open the app</a>
+  <p class="hint">Bookings, seat map, checkout and a live DBMS console on one machine.</p>
+</section>
 
-    <h2 class="step">My trips</h2>
-    <label for="site-trips-pax">Passenger</label>
-    <select id="site-trips-pax"></select>
-    <ol id="site-trips"></ol>
-    <p id="trips-error" class="error" role="alert"></p>
-  </aside>
-</div>
-
-<!-- ============ DBMS CONSOLE (teaching view) ============ -->
-<main id="layout">
-  <!-- LEFT: actions -->
-  <section id="col-actions" aria-label="Actions">
-    <h2>Book a seat</h2>
-    <label for="flight-select">Flight</label>
-    <select id="flight-select"></select>
-
-    <div id="seat-map" role="group" aria-label="Seat map"></div>
-    <p id="seat-hint">Booked seats are crossed out. Click a booked seat to cancel it.</p>
-
-    <label for="passenger-select">Passenger</label>
-    <select id="passenger-select"></select>
-
-    <label for="baggage-kg">Baggage kg (0 = none, 1&ndash;40)</label>
-    <input id="baggage-kg" type="number" min="0" max="40" step="1" value="0">
-
-    <button id="btn-book" type="button" class="primary">Book seat</button>
-
-    <label for="fail-at">Book with forced failure at</label>
-    <select id="fail-at">
-      <option value="">(no failure)</option>
-      <option value="booking">after booking</option>
-      <option value="payment">after payment</option>
-      <option value="baggage">after baggage</option>
-    </select>
-    <button id="btn-book-fail" type="button">Book with forced failure</button>
-    <button id="btn-cancel" type="button" disabled>Cancel booking</button>
-    <p id="book-error" class="error" role="alert"></p>
-
-    <h2>Concepts</h2>
-    <div class="concept-grid">
-      <button type="button" data-demo="fk">FK error</button>
-      <button type="button" data-demo="unique">UNIQUE error</button>
-      <button type="button" data-demo="check">CHECK error</button>
-      <button type="button" data-demo="trigger">Trigger error</button>
-    </div>
-    <button id="btn-isolation" type="button">Isolation demo (A vs B)</button>
-    <p id="concept-error" class="error" role="alert"></p>
-
-    <h2>Normalization</h2>
-    <div class="concept-grid">
-      <button type="button" data-norm="update">Update anomaly</button>
-      <button type="button" data-norm="insert">Insert anomaly</button>
-      <button type="button" data-norm="delete">Delete anomaly</button>
-    </div>
-    <p class="hint">Each button puts its anomaly query into the SQL box. Run it and compare.</p>
-  </section>
-
-  <!-- CENTER: data -->
-  <section id="col-data" aria-label="Data">
-    <nav id="table-tabs" aria-label="Database tables"></nav>
-    <div id="table-wrap"><table id="data-table"></table></div>
-    <p id="table-error" class="error" role="alert"></p>
-
-    <h2>SQL</h2>
-    <textarea id="sql-input" rows="4" spellcheck="false"
-      placeholder="SELECT * FROM bookings LIMIT 10"></textarea>
-    <button id="btn-run" type="button" class="primary">Run query</button>
-    <p class="hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> also runs the query</p>
-    <p id="sql-error" class="error" role="alert"></p>
-    <div id="sql-result"><table id="sql-table"></table></div>
-  </section>
-
-  <!-- RIGHT: logs -->
-  <section id="col-logs" aria-label="Logs">
-    <nav id="log-tabs" aria-label="Logs">
-      <button type="button" data-log="audit" aria-pressed="true">Audit log</button>
-      <button type="button" data-log="general" aria-pressed="false">General log</button>
-      <button type="button" data-log="trace" aria-pressed="false">Transaction trace</button>
-    </nav>
-    <ol id="audit-list" class="log-list"></ol>
-    <ol id="general-list" class="log-list" hidden></ol>
-    <ol id="trace-list" class="log-list" hidden></ol>
-  </section>
-</main>
-
-<script src="app.js"></script>
-<script src="site.js"></script>
+<script src="landing.js"></script>
 </body>
 </html>
